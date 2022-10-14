@@ -19,22 +19,18 @@ import * as poseDetection from '@tensorflow-models/pose-detection';
    ctx.strokeStyle = color;
    ctx.stroke();
  }
- 
  /**
   * Draws a pose skeleton by looking up all adjacent keypoints/joints
   */
  export function drawSkeleton(keypoints, minConfidence, ctx, scale = 1) {
    const adjacentKeyPoints = poseDetection.util.getAdjacentPairs(
     poseDetection.SupportedModels.MoveNet);
-  
     adjacentKeyPoints.forEach(([i,j]) => {
       const kp1 = keypoints[i];
       const kp2 = keypoints[j];
       const score1 = kp1.score != null ? kp1.score : 1;
       const score2 = kp2.score != null ? kp2.score : 1;
       if (score1>=minConfidence && score2>=minConfidence){
-        // console.log("adjacentKeyPoints")
-        // console.log(keypoints[i],keypoints[j]);
         drawSegment(
         [kp1.y, kp1.x],
         [kp2.y, kp2.x],
@@ -45,7 +41,6 @@ import * as poseDetection from '@tensorflow-models/pose-detection';
       }
    });
  }
- 
  /**
   * Draw pose keypoints onto a canvas
   */
@@ -58,11 +53,9 @@ import * as poseDetection from '@tensorflow-models/pose-detection';
      }
      const y= keypoint.y;
      const x= keypoint.x;
-    //  console.log(keypoint);
      drawPoint(ctx, y * scale, x * scale, 3, color);
    }
  }
-
  //  functions to calculate 
 function radToDeg(rad) {
   return rad / (Math.PI / 180);
@@ -90,7 +83,8 @@ export function findDistance(p1,p2){
   const position2= [p2.y,p2.x];
   let xDistance= Math.abs(position1[1]-position2[1]);
   let yDistance= Math.abs(position1[0]-position2[0]);
-  return (xDistance, yDistance);
+  let euclideanDistance= Math.sqrt(xDistance*xDistance+yDistance*yDistance);
+  return euclideanDistance;
 }
 
 //data for pushups
@@ -106,278 +100,192 @@ export function findDistance(p1,p2){
 //Conditions:
 let elbowMin=65
 let elbowMax=165
-let shoulderMin= 30
+let shoulderMin= 50
 let shoulderMax=60
 let hipMin= 160
 
 //indicators:
-let elbowBool= false
-let shoulderBool=false
-let hipBool=false
-
 let count = 0
 let direction = 0
 let form = 0
 let feedback = "Begin"
+let specificFeedbackPU= {
+  elbow: false,
+  shoulder:false,
+  hip:false
+};
 
 let shoulderAngle=0;
 let hipAngle=0;
 let elbowAngle=0;
 
-export function drawSkeletonPushUps(keypoints, minConfidence, ctx, scale = 1) {
-  let shoulder=null;
-  let elbow=null;
-  let wrist=null;
-  let hip=null;
-  let knee= null;
+let shoulder=null;
+let elbow=null;
+let wrist=null;
+let hip=null;
+let knee= null;
+let ear= null;
+let ankle= null
 
-  for (let i = 0; i < keypoints.length; i++) {
-    if (keypoints[i].score>=minConfidence){
-      switch(keypoints[i].name){
-        case("left_shoulder"):
-          shoulder= keypoints[i];
-          break;
-        case("left_elbow"):
-          elbow= keypoints[i];
-          break;
-        case("left_wrist"):
-          wrist= keypoints[i];
-          break;
-        case("left_hip"):
-          hip= keypoints[i];
-          break;
-        case("left_knee"):
-          knee= keypoints[i];
-          break;
-      }
-    }
-  }
-  if (wrist!=null&& elbow!=null &&shoulder!=null){
-    drawSegment(
-      [wrist.y, wrist.x],
-      [elbow.y, elbow.x],
-        color,
-        scale,
-        ctx
-      );
-    drawSegment(
-      [elbow.y, elbow.x],
-      [shoulder.y, shoulder.x],
-        color,
-        scale,
-        ctx
-      );
+export function drawSkeletonPushUps(keypoints, minConfidence, ctx, scale = 1) {
+  shoulder= keypoints[5].score>minConfidence?keypoints[5]:null;
+  elbow= keypoints[7].score>minConfidence?keypoints[7]:null;
+  wrist= keypoints[9].score>minConfidence?keypoints[9]:null;
+  hip= keypoints[11].score>minConfidence?keypoints[11]:null;
+  knee= keypoints[13].score>minConfidence?keypoints[13]:null;
+  if (wrist && elbow && shoulder){
+    drawSegment([wrist.y, wrist.x],[elbow.y, elbow.x],color,scale,ctx);
+    drawSegment([elbow.y, elbow.x],[shoulder.y, shoulder.x],color,scale,ctx);
     elbowAngle= findAngle(wrist,elbow,shoulder);
-    shoulderAngle= findAngle(wrist,elbow,shoulder);
-    // console.log("elbow angle is %d, shoulder angle is %d",elbowAngle, shoulderAngle);
   }
-  if (shoulder!=null&& hip!=null &&knee!=null){
-    drawSegment(
-      [hip.y, hip.x],
-      [knee.y, knee.x],
-        color,
-        scale,
-        ctx
-      );
-    drawSegment(
-      [hip.y, hip.x],
-      [shoulder.y, shoulder.x],
-        color,
-        scale,
-        ctx
-      );
+  if (shoulder && hip && elbow ){
+    shoulderAngle= findAngle(elbow,shoulder,hip);
+  }
+  if (shoulder && hip && knee){
+    drawSegment([hip.y, hip.x],[knee.y, knee.x],color,scale,ctx);
+    drawSegment([hip.y, hip.x],[shoulder.y, shoulder.x],color,scale,ctx);
     hipAngle= findAngle(shoulder,hip,knee);
-    // console.log("hipAngle is %d", hipAngle);
   }
   //Check to ensure right form before starting the program
-  if (shoulderAngle<shoulderMax){
-    shoulderBool=false;
-  }
-  else{
-    shoulderBool=true;
-  }
-  if (hipAngle <hipMin){
-    hipBool= false;
-  }
-  else{
-    hipBool=true;
-  }
-  if (elbowAngle<elbowMax){
-    elbowBool= false;
-  }
-  else{
-    elbowBool=true;
-  }
-  if (shoulderBool==true && elbowBool==true && hipBool==true){
-    if (form==0){
-      form=1;
-      feedback = "Start";
+  if (form==0){
+    specificFeedbackPU.shoulder= shoulderAngle<shoulderMax?false:true;
+    specificFeedbackPU.hip= hipAngle<hipMin?false:true;
+    specificFeedbackPU.elbow= elbowAngle<elbowMax?false:true;
+    if (specificFeedbackPU.shoulder && specificFeedbackPU.elbow && specificFeedbackPU.hip){
+        form=1;
+        feedback = "Start";
+      }
     }
-  }
-  if (shoulder!=null && elbow!=null && wrist!=null && hip!=null && knee!=null){
+  if (shoulder && elbow && wrist && hip && knee){
     if (form == 1){
       if (direction==0){
         feedback = "Down";
-        if (shoulderAngle>shoulderMin){
-          shoulderBool=false;
-        }
-        else{
-          shoulderBool=true;
-        }
-        if (hipAngle <hipMin){
-          hipBool= false;
-        }
-        else{
-          hipBool=true;
-        }
-        if (elbowAngle>elbowMin){
-          elbowBool= false;
-        }
-        else{
-          elbowBool=true;
-        }
-        if (shoulderBool==true && elbowBool==true && hipBool==true){
+        specificFeedbackPU.shoulder= shoulderAngle>shoulderMin?false:true;
+        specificFeedbackPU.hip= hipAngle<hipMin?false:true;
+        specificFeedbackPU.elbow= elbowAngle>elbowMin?false:true;
+        if (specificFeedbackPU.shoulder && specificFeedbackPU.elbow && specificFeedbackPU.hip){
           count += 0.5;
           direction = 1;
         }
       }
       if (direction==1){
         feedback = "Up";
-        if (shoulderAngle<shoulderMax){
-          shoulderBool=false;
-        }
-        else{
-          shoulderBool=true;
-        }
-        if (hipAngle<hipMin){
-          hipBool= false;
-        }
-        else{
-          hipBool=true;
-        }
-        if (elbowAngle<elbowMax){
-          elbowBool= false;
-        }
-        else{
-          elbowBool=true;
-        }
-        if (shoulderBool==true && elbowBool==true && hipBool==true){
+        specificFeedbackPU.shoulder= shoulderAngle<shoulderMax?false:true;
+        specificFeedbackPU.hip= hipAngle<hipMin?false:true;
+        specificFeedbackPU.elbow= elbowAngle<elbowMax?false:true;
+        if (specificFeedbackPU.shoulder && specificFeedbackPU.elbow && specificFeedbackPU.hip){
           count += 0.5;
           direction = 0;
         }
       }
     }
-    console.log(elbowAngle,shoulderAngle,hipAngle);
-    console.log("feedback is %s", feedback);
-    console.log("count is %d", count);
   }
+  console.log(elbowAngle,shoulderAngle,hipAngle);
+  console.log("feedback is %s", feedback);
+  console.log("elbow is %s, Shoulder is %s and hip is %s", specificFeedbackPU.elbow, specificFeedbackPU.shoulder, specificFeedbackPU.hip);
+  console.log("count is %d", count);
+  return [count, feedback, specificFeedbackPU];
 }
-  
-  
+
+
+//Data for situps
+// shoulderBlade angle - 3,5,15 
+// butt angle- 5,11,13
+// knee angle- 11,13,15
+// earcup distance- 3,9
+// touchKnee distance- 7,13
+form=0;
+// Conditions:
+let shoulderBladeMin= 150
+let buttStart=165
+let buttEnd= 80
+let kneeMin= 120
+let earCupMin= 50 //need to recalibrate as using euclidean distance
+let touchKneeMin=40 //need to recalibrate as using euclidean distance
+
+let specificFeedbackSU= {
+  cupEars: false,//throughout
+  butt: false, //throughout
+  kneePosition: false,//throughout
+  touchKnees: false,///;going up
+  flattenShoulder:false //going down
+};
+let earCupDistance=10000;
+let touchKneeDistance=1000;
+let shoulderBladeAngle=null;
+let buttAngle=null;
+let kneeAngle=null;
+
   export function drawSkeletonSitUps(keypoints, minConfidence, ctx, scale = 1) {
-  // shoulderBlade angle - 3,5,15 
-  // butt angle- 5,11,13
-  // knee angle- 11,13,15
-  // earcup distance- 3,9
-  // touchKnee distance- 7,13
-  let ear= null;
-  let ankle= null
-  let shoulder=null;
-  let hip=null;
-  let knee= null;
-  let elbow=null;
-  let wrist=null;
-  for (let i = 0; i < keypoints.length; i++) {
-    if (keypoints[i].score>=minConfidence){
-      switch(keypoints[i].name){
-        case("left_ear"):
-          ear= keypoints[i];
-          break;
-        case("left_ankle"):
-          ankle= keypoints[i];
-          break;
-        case("left_shoulder"):
-          shoulder= keypoints[i];
-          break;
-        case("left_elbow"):
-          elbow= keypoints[i];
-          break;
-        case("left_wrist"):
-          wrist= keypoints[i];
-          break;
-        case("left_hip"):
-          hip= keypoints[i];
-          break;
-        case("left_knee"):
-          knee= keypoints[i];
-          break;
+  shoulder= keypoints[5].score>minConfidence?keypoints[5]:null;
+  elbow= keypoints[7].score>minConfidence?keypoints[7]:null;
+  wrist= keypoints[9].score>minConfidence?keypoints[9]:null;
+  hip= keypoints[11].score>minConfidence?keypoints[11]:null;
+  knee= keypoints[13].score>minConfidence?keypoints[13]:null;
+  ear= keypoints[3].score>minConfidence?keypoints[3]:null;
+  ankle= keypoints[15].score>minConfidence?keypoints[15]:null;
+  
+  if (ear && wrist){
+    earCupDistance= findDistance(ear,wrist);
+  }
+  if (knee && wrist){
+    touchKneeDistance= findDistance(ear,wrist);
+  }
+  if (ear && shoulder && ankle){
+    drawSegment([ear.y, ear.x],[shoulder.y, shoulder.x],color,scale,ctx);
+    drawSegment([ankle.y, ankle.x],[shoulder.y, shoulder.x],color,scale,ctx);
+    shoulderBladeAngle= findAngle(ear,shoulder,ankle);
+  }
+  if (hip && shoulder && ankle){
+    drawSegment([hip.y, hip.x],[shoulder.y, shoulder.x],color,scale,ctx);
+    buttAngle= findAngle(shoulder,hip,ankle);
+  }
+  if (hip && knee && ankle){
+    drawSegment([hip.y, hip.x],[knee.y, knee.x],color,scale,ctx);
+    drawSegment([knee.y, knee.x],[ankle.y, ankle.x],color,scale,ctx);
+    kneeAngle= findAngle(hip,knee,ankle);
+  }
+  //Check to ensure right form before starting the program
+  if (form==0){
+    specificFeedbackSU.flattenShoulder= shoulderBladeAngle<shoulderBladeMin?false:true;
+    specificFeedbackSU.butt= buttAngle<buttStart?false:true;
+    specificFeedbackSU.cupEars= earCupDistance>earCupMin?false:true;
+    specificFeedbackSU.kneePosition= kneeAngle<kneeMin?false:true;
+    if (specificFeedbackSU.flattenShoulder && specificFeedbackSU.butt && specificFeedbackSU.cupEars && specificFeedbackSU.kneePosition){
+      form=1;
+      feedback= "Start";
+    }
+  }
+  if (shoulder && elbow && wrist && hip && knee && ankle){
+    if (form ==1){
+      if (direction==0){
+        feedback= "Up";
+        specificFeedbackSU.butt= buttAngle>buttEnd?false:true;
+        specificFeedbackSU.cupEars= earCupDistance>earCupMin?false:true;
+        specificFeedbackSU.touchKnees= touchKneeDistance>touchKneeMin?false:true;
+        if (specificFeedbackSU.butt && specificFeedbackSU.cupEars && specificFeedbackSU.touchKnees){
+          count += 0.5
+          direction = 1
+        }
+      }
+      if (direction==1){
+        feedback= "Down";
+        specificFeedbackSU.cupEars= earCupDistance>earCupMin?false:true;
+        specificFeedbackSU.flattenShoulder= shoulderBladeAngle<shoulderBladeMin?false:true;
+        specificFeedbackSU.butt= buttAngle<buttStart?false:true;
+        specificFeedbackSU.kneePosition= kneeAngle>kneeMin?false:true;
+        if (specificFeedbackSU.cupEars && specificFeedbackSU.flattenShoulder && specificFeedbackSU.butt && specificFeedbackSU.kneePosition){
+          count += 0.5;
+          direction = 0;
+        }
       }
     }
   }
-  if (ear!=null && wrist!=null){
-    let earCupDistance= findDistance(ear,wrist);
-    console.log(earCupDistance);
-  }
-  if (knee!=null && wrist!=null){
-    let touchKneeDistance= findDistance(ear,wrist);
-    console.log(touchKneeDistance);
-  }
-  if (ear!=null && shoulder!=null &&ankle!=null){
-    drawSegment(
-      [ear.y, ear.x],
-      [shoulder.y, shoulder.x],
-        color,
-        scale,
-        ctx
-      );
-    drawSegment(
-      [ankle.y, ankle.x],
-      [shoulder.y, shoulder.x],
-        color,
-        scale,
-        ctx
-      );
-    let shoulderBladeAngle= findAngle(ear,shoulder,ankle);
-    console.log(shoulderBladeAngle);
-  }
-  if (hip!=null&& shoulder!=null &&knee!=null){
-    drawSegment(
-      [hip.y, hip.x],
-      [shoulder.y, shoulder.x],
-        color,
-        scale,
-        ctx
-      );
-    drawSegment(
-      [knee.y, knee.x],
-      [shoulder.y, shoulder.x],
-        color,
-        scale,
-        ctx
-      );
-    let buttAngle= findAngle(shoulder,hip,knee);
-    console.log(buttAngle);
-  }
-  if (hip!=null&& knee!=null &&ankle!=null){
-    drawSegment(
-      [hip.y, hip.x],
-      [knee.y, knee.x],
-        color,
-        scale,
-        ctx
-      );
-    drawSegment(
-      [knee.y, knee.x],
-      [ankle.y, ankle.x],
-        color,
-        scale,
-        ctx
-      );
-    let kneeAngle= findAngle(hip,knee,ankle);
-    console.log(kneeAngle);
-  }
+  console.log(earCupDistance,touchKneeDistance,shoulderBladeAngle, buttAngle, kneeAngle);
+  console.log("feedback is %s", feedback);
+  console.log("cupEars is %s, butt is %s, kneePosition is %s, touchKnees is %s and flattenShoulder is %s", specificFeedbackSU.cupEars, specificFeedbackSU.butt, specificFeedbackSU.kneePosition,specificFeedbackSU.touchKnees,specificFeedbackSU.flattenShoulder);
+  console.log("count is %d", count);
+  return [count, feedback, specificFeedbackSU];
 }
-  
-  
 
    
