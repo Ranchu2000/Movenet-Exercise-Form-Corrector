@@ -1,85 +1,6 @@
-/**
- * @license
- * Copyright 2019 Google LLC. All Rights Reserved.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- * =============================================================================
- */
- import * as posenet from "@tensorflow-models/posenet";
- import * as tf from "@tensorflow/tfjs";
- import * as poseDetection from '@tensorflow-models/pose-detection';
- 
+import * as poseDetection from '@tensorflow-models/pose-detection';
  const color = "aqua";
- const boundingBoxColor = "red";
  const lineWidth = 2;
- 
- export const tryResNetButtonName = "tryResNetButton";
- export const tryResNetButtonText = "[New] Try ResNet50";
- const tryResNetButtonTextCss = "width:100%;text-decoration:underline;";
- const tryResNetButtonBackgroundCss = "background:#e61d5f;";
- 
- function isAndroid() {
-   return /Android/i.test(navigator.userAgent);
- }
- 
- function isiOS() {
-   return /iPhone|iPad|iPod/i.test(navigator.userAgent);
- }
- 
- export function isMobile() {
-   return isAndroid() || isiOS();
- }
- 
- function setDatGuiPropertyCss(propertyText, liCssString, spanCssString = "") {
-   var spans = document.getElementsByClassName("property-name");
-   for (var i = 0; i < spans.length; i++) {
-     var text = spans[i].textContent || spans[i].innerText;
-     if (text == propertyText) {
-       spans[i].parentNode.parentNode.style = liCssString;
-       if (spanCssString !== "") {
-         spans[i].style = spanCssString;
-       }
-     }
-   }
- }
- 
- export function updateTryResNetButtonDatGuiCss() {
-   setDatGuiPropertyCss(
-     tryResNetButtonText,
-     tryResNetButtonBackgroundCss,
-     tryResNetButtonTextCss
-   );
- }
- 
- /**
-  * Toggles between the loading UI and the main canvas UI.
-  */
- export function toggleLoadingUI(
-   showLoadingUI,
-   loadingDivId = "loading",
-   mainDivId = "main"
- ) {
-   if (showLoadingUI) {
-     document.getElementById(loadingDivId).style.display = "block";
-     document.getElementById(mainDivId).style.display = "none";
-   } else {
-     document.getElementById(loadingDivId).style.display = "none";
-     document.getElementById(mainDivId).style.display = "block";
-   }
- }
- 
- function toTuple({ y, x }) {
-   return [y, x];
- }
  
  export function drawPoint(ctx, y, x, r, color) {
    ctx.beginPath();
@@ -87,7 +8,6 @@
    ctx.fillStyle = color;
    ctx.fill();
  }
- 
  /**
   * Draws a line on a canvas, i.e. a joint
   */
@@ -106,18 +26,16 @@
  export function drawSkeleton(keypoints, minConfidence, ctx, scale = 1) {
    const adjacentKeyPoints = poseDetection.util.getAdjacentPairs(
     poseDetection.SupportedModels.MoveNet);
-    
+  
     adjacentKeyPoints.forEach(([i,j]) => {
       const kp1 = keypoints[i];
       const kp2 = keypoints[j];
       const score1 = kp1.score != null ? kp1.score : 1;
       const score2 = kp2.score != null ? kp2.score : 1;
       if (score1>=minConfidence && score2>=minConfidence){
-        console.log("adjacentKeyPoints")
-        console.log(keypoints[i],keypoints[j]);
+        // console.log("adjacentKeyPoints")
+        // console.log(keypoints[i],keypoints[j]);
         drawSegment(
-        //  toTuple(keypoints[0].position),
-        //  toTuple(keypoints[1].position),
         [kp1.y, kp1.x],
         [kp2.y, kp2.x],
           color,
@@ -125,7 +43,6 @@
           ctx
         );
       }
-
    });
  }
  
@@ -135,122 +52,332 @@
  export function drawKeypoints(keypoints, minConfidence, ctx, scale = 1) {
    for (let i = 0; i < keypoints.length; i++) {
      const keypoint = keypoints[i];
- 
+     
      if (keypoint.score < minConfidence) {
        continue;
      }
      const y= keypoint.y;
      const x= keypoint.x;
+    //  console.log(keypoint);
      drawPoint(ctx, y * scale, x * scale, 3, color);
    }
  }
- 
- /**
-  * Draw the bounding box of a pose. For example, for a whole person standing
-  * in an image, the bounding box will begin at the nose and extend to one of
-  * ankles
-  */
- export function drawBoundingBox(keypoints, ctx) {
-   const boundingBox = posenet.getBoundingBox(keypoints);
- 
-   ctx.rect(
-     boundingBox.minX,
-     boundingBox.minY,
-     boundingBox.maxX - boundingBox.minX,
-     boundingBox.maxY - boundingBox.minY
-   );
- 
-   ctx.strokeStyle = boundingBoxColor;
-   ctx.stroke();
- }
- 
- /**
-  * Converts an arary of pixel data into an ImageData object
-  */
- export async function renderToCanvas(a, ctx) {
-   const [height, width] = a.shape;
-   const imageData = new ImageData(width, height);
- 
-   const data = await a.data();
- 
-   for (let i = 0; i < height * width; ++i) {
-     const j = i * 4;
-     const k = i * 3;
- 
-     imageData.data[j + 0] = data[k + 0];
-     imageData.data[j + 1] = data[k + 1];
-     imageData.data[j + 2] = data[k + 2];
-     imageData.data[j + 3] = 255;
-   }
- 
-   ctx.putImageData(imageData, 0, 0);
- }
- 
- /**
-  * Draw an image on a canvas
-  */
- export function renderImageToCanvas(image, size, canvas) {
-   canvas.width = size[0];
-   canvas.height = size[1];
-   const ctx = canvas.getContext("2d");
- 
-   ctx.drawImage(image, 0, 0);
- }
- 
- /**
-  * Draw heatmap values, one of the model outputs, on to the canvas
-  * Read our blog post for a description of PoseNet's heatmap outputs
-  * https://medium.com/tensorflow/real-time-human-pose-estimation-in-the-browser-with-tensorflow-js-7dd0bc881cd5
-  */
- export function drawHeatMapValues(heatMapValues, outputStride, canvas) {
-   const ctx = canvas.getContext("2d");
-   const radius = 5;
-   const scaledValues = heatMapValues.mul(tf.scalar(outputStride, "int32"));
- 
-   drawPoints(ctx, scaledValues, radius, color);
- }
- 
- /**
-  * Used by the drawHeatMapValues method to draw heatmap points on to
-  * the canvas
-  */
- function drawPoints(ctx, points, radius, color) {
-   const data = points.buffer().values;
- 
-   for (let i = 0; i < data.length; i += 2) {
-     const pointY = data[i];
-     const pointX = data[i + 1];
- 
-     if (pointX !== 0 && pointY !== 0) {
-       ctx.beginPath();
-       ctx.arc(pointX, pointY, radius, 0, 2 * Math.PI);
-       ctx.fillStyle = color;
-       ctx.fill();
-     }
-   }
- }
- 
- /**
-  * Draw offset vector values, one of the model outputs, on to the canvas
-  * Read our blog post for a description of PoseNet's offset vector outputs
-  * https://medium.com/tensorflow/real-time-human-pose-estimation-in-the-browser-with-tensorflow-js-7dd0bc881cd5
-  */
- // export function drawOffsetVectors(
- //     heatMapValues, offsets, outputStride, scale = 1, ctx) {
- //   const offsetPoints =
- //       posenet.singlePose.getOffsetPoints(heatMapValues, outputStride, offsets);
- 
- //   const heatmapData = heatMapValues.buffer().values;
- //   const offsetPointsData = offsetPoints.buffer().values;
- 
- //   for (let i = 0; i < heatmapData.length; i += 2) {
- //     const heatmapY = heatmapData[i] * outputStride;
- //     const heatmapX = heatmapData[i + 1] * outputStride;
- //     const offsetPointY = offsetPointsData[i];
- //     const offsetPointX = offsetPointsData[i + 1];
- 
- //     drawSegment(
- //         [heatmapY, heatmapX], [offsetPointY, offsetPointX], color, scale, ctx);
- //   }
- // }
- 
+
+ //  functions to calculate 
+function radToDeg(rad) {
+  return rad / (Math.PI / 180);
+}
+
+export function findAngle(p1,p2,p3){
+  const position1= [p1.y,p1.x];
+  const position2= [p2.y,p2.x];
+  const position3= [p3.y,p3.x];
+  let  angle = radToDeg(Math.atan2(position3[0]-position2[0], position3[1]-position2[1]) - 
+  Math.atan2(position1[0]-position2[0], position1[1]-position2[1]));
+  if (angle < 0){
+    angle+=360;
+    if (angle>180){
+      angle=360-angle;
+    }
+  }else if (angle>180){
+    angle=360-angle;
+  }
+  return angle;
+}
+
+export function findDistance(p1,p2){
+  const position1= [p1.y,p1.x];
+  const position2= [p2.y,p2.x];
+  let xDistance= Math.abs(position1[1]-position2[1]);
+  let yDistance= Math.abs(position1[0]-position2[0]);
+  return (xDistance, yDistance);
+}
+
+//data for pushups
+// let shoulder=null;
+// let elbow=null;
+// let wrist=null;
+// let hip=null;
+// let knee= null;
+// elbow angle - 5,7,9
+// shoulder angle- 7,5,11
+// hip angle- 5,11,13
+
+//Conditions:
+let elbowMin=65
+let elbowMax=165
+let shoulderMin= 30
+let shoulderMax=60
+let hipMin= 160
+
+//indicators:
+let elbowBool= false
+let shoulderBool=false
+let hipBool=false
+
+let count = 0
+let direction = 0
+let form = 0
+let feedback = "Begin"
+
+let shoulderAngle=0;
+let hipAngle=0;
+let elbowAngle=0;
+
+export function drawSkeletonPushUps(keypoints, minConfidence, ctx, scale = 1) {
+  let shoulder=null;
+  let elbow=null;
+  let wrist=null;
+  let hip=null;
+  let knee= null;
+
+  for (let i = 0; i < keypoints.length; i++) {
+    if (keypoints[i].score>=minConfidence){
+      switch(keypoints[i].name){
+        case("left_shoulder"):
+          shoulder= keypoints[i];
+          break;
+        case("left_elbow"):
+          elbow= keypoints[i];
+          break;
+        case("left_wrist"):
+          wrist= keypoints[i];
+          break;
+        case("left_hip"):
+          hip= keypoints[i];
+          break;
+        case("left_knee"):
+          knee= keypoints[i];
+          break;
+      }
+    }
+  }
+  if (wrist!=null&& elbow!=null &&shoulder!=null){
+    drawSegment(
+      [wrist.y, wrist.x],
+      [elbow.y, elbow.x],
+        color,
+        scale,
+        ctx
+      );
+    drawSegment(
+      [elbow.y, elbow.x],
+      [shoulder.y, shoulder.x],
+        color,
+        scale,
+        ctx
+      );
+    elbowAngle= findAngle(wrist,elbow,shoulder);
+    shoulderAngle= findAngle(wrist,elbow,shoulder);
+    // console.log("elbow angle is %d, shoulder angle is %d",elbowAngle, shoulderAngle);
+  }
+  if (shoulder!=null&& hip!=null &&knee!=null){
+    drawSegment(
+      [hip.y, hip.x],
+      [knee.y, knee.x],
+        color,
+        scale,
+        ctx
+      );
+    drawSegment(
+      [hip.y, hip.x],
+      [shoulder.y, shoulder.x],
+        color,
+        scale,
+        ctx
+      );
+    hipAngle= findAngle(shoulder,hip,knee);
+    // console.log("hipAngle is %d", hipAngle);
+  }
+  //Check to ensure right form before starting the program
+  if (shoulderAngle<shoulderMax){
+    shoulderBool=false;
+  }
+  else{
+    shoulderBool=true;
+  }
+  if (hipAngle <hipMin){
+    hipBool= false;
+  }
+  else{
+    hipBool=true;
+  }
+  if (elbowAngle<elbowMax){
+    elbowBool= false;
+  }
+  else{
+    elbowBool=true;
+  }
+  if (shoulderBool==true && elbowBool==true && hipBool==true){
+    if (form==0){
+      form=1;
+      feedback = "Start";
+    }
+  }
+  if (shoulder!=null && elbow!=null && wrist!=null && hip!=null && knee!=null){
+    if (form == 1){
+      if (direction==0){
+        feedback = "Down";
+        if (shoulderAngle>shoulderMin){
+          shoulderBool=false;
+        }
+        else{
+          shoulderBool=true;
+        }
+        if (hipAngle <hipMin){
+          hipBool= false;
+        }
+        else{
+          hipBool=true;
+        }
+        if (elbowAngle>elbowMin){
+          elbowBool= false;
+        }
+        else{
+          elbowBool=true;
+        }
+        if (shoulderBool==true && elbowBool==true && hipBool==true){
+          count += 0.5;
+          direction = 1;
+        }
+      }
+      if (direction==1){
+        feedback = "Up";
+        if (shoulderAngle<shoulderMax){
+          shoulderBool=false;
+        }
+        else{
+          shoulderBool=true;
+        }
+        if (hipAngle<hipMin){
+          hipBool= false;
+        }
+        else{
+          hipBool=true;
+        }
+        if (elbowAngle<elbowMax){
+          elbowBool= false;
+        }
+        else{
+          elbowBool=true;
+        }
+        if (shoulderBool==true && elbowBool==true && hipBool==true){
+          count += 0.5;
+          direction = 0;
+        }
+      }
+    }
+    console.log(elbowAngle,shoulderAngle,hipAngle);
+    console.log("feedback is %s", feedback);
+    console.log("count is %d", count);
+  }
+}
+  
+  
+  export function drawSkeletonSitUps(keypoints, minConfidence, ctx, scale = 1) {
+  // shoulderBlade angle - 3,5,15 
+  // butt angle- 5,11,13
+  // knee angle- 11,13,15
+  // earcup distance- 3,9
+  // touchKnee distance- 7,13
+  let ear= null;
+  let ankle= null
+  let shoulder=null;
+  let hip=null;
+  let knee= null;
+  let elbow=null;
+  let wrist=null;
+  for (let i = 0; i < keypoints.length; i++) {
+    if (keypoints[i].score>=minConfidence){
+      switch(keypoints[i].name){
+        case("left_ear"):
+          ear= keypoints[i];
+          break;
+        case("left_ankle"):
+          ankle= keypoints[i];
+          break;
+        case("left_shoulder"):
+          shoulder= keypoints[i];
+          break;
+        case("left_elbow"):
+          elbow= keypoints[i];
+          break;
+        case("left_wrist"):
+          wrist= keypoints[i];
+          break;
+        case("left_hip"):
+          hip= keypoints[i];
+          break;
+        case("left_knee"):
+          knee= keypoints[i];
+          break;
+      }
+    }
+  }
+  if (ear!=null && wrist!=null){
+    let earCupDistance= findDistance(ear,wrist);
+    console.log(earCupDistance);
+  }
+  if (knee!=null && wrist!=null){
+    let touchKneeDistance= findDistance(ear,wrist);
+    console.log(touchKneeDistance);
+  }
+  if (ear!=null && shoulder!=null &&ankle!=null){
+    drawSegment(
+      [ear.y, ear.x],
+      [shoulder.y, shoulder.x],
+        color,
+        scale,
+        ctx
+      );
+    drawSegment(
+      [ankle.y, ankle.x],
+      [shoulder.y, shoulder.x],
+        color,
+        scale,
+        ctx
+      );
+    let shoulderBladeAngle= findAngle(ear,shoulder,ankle);
+    console.log(shoulderBladeAngle);
+  }
+  if (hip!=null&& shoulder!=null &&knee!=null){
+    drawSegment(
+      [hip.y, hip.x],
+      [shoulder.y, shoulder.x],
+        color,
+        scale,
+        ctx
+      );
+    drawSegment(
+      [knee.y, knee.x],
+      [shoulder.y, shoulder.x],
+        color,
+        scale,
+        ctx
+      );
+    let buttAngle= findAngle(shoulder,hip,knee);
+    console.log(buttAngle);
+  }
+  if (hip!=null&& knee!=null &&ankle!=null){
+    drawSegment(
+      [hip.y, hip.x],
+      [knee.y, knee.x],
+        color,
+        scale,
+        ctx
+      );
+    drawSegment(
+      [knee.y, knee.x],
+      [ankle.y, ankle.x],
+        color,
+        scale,
+        ctx
+      );
+    let kneeAngle= findAngle(hip,knee,ankle);
+    console.log(kneeAngle);
+  }
+}
+  
+  
+
+   
