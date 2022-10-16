@@ -197,11 +197,11 @@ export function drawSkeletonPushUps(keypoints, minConfidence, ctx, scale = 1) {
 form=0;
 // Conditions:
 let shoulderBladeMin= 150
-let buttStart=165
-let buttEnd= 80
+let buttStart=150
+let buttEnd= 100
 let kneeMin= 120
 let earCupMin= 50 //need to recalibrate as using euclidean distance
-let touchKneeMin=40 //need to recalibrate as using euclidean distance
+let touchKneeMin=50 //need to recalibrate as using euclidean distance
 
 let specificFeedbackSU= {
   cupEars: false,//throughout
@@ -250,7 +250,7 @@ let kneeAngle=null;
     specificFeedbackSU.flattenShoulder= shoulderBladeAngle<shoulderBladeMin?false:true;
     specificFeedbackSU.butt= buttAngle<buttStart?false:true;
     specificFeedbackSU.cupEars= earCupDistance>earCupMin?false:true;
-    specificFeedbackSU.kneePosition= kneeAngle<kneeMin?false:true;
+    specificFeedbackSU.kneePosition= kneeAngle>kneeMin?false:true;
     if (specificFeedbackSU.flattenShoulder && specificFeedbackSU.butt && specificFeedbackSU.cupEars && specificFeedbackSU.kneePosition){
       form=1;
       feedback= "Start";

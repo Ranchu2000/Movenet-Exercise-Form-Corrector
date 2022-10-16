@@ -1,4 +1,4 @@
-import React, { useRef }  from 'react'
+import React, { useRef}  from 'react'
 import './index.css'
 import * as poseDetection from '@tensorflow-models/pose-detection';
 // Register one of the TF.js backends.
@@ -9,24 +9,60 @@ import { drawKeypoints, drawSkeletonPushUps, drawSkeletonSitUps } from "./utilit
 
 /*
   TODO
-  - timer function- use it to change state of start
-  - start and change button quite wonky
+  - the reset button doesnt reset the counter (there will be 2 counters created)
+  - unable to switch the mode midway through (for now need to select mode before starting)
   - process specific feedback onto the screen (refer to utilities for the format)
-  - situp model tuning
+  - beautifying the layout
 */
 
 const minConfidence= 0.5
-const timeLimit= 60;
+const timeLimit= 10000;
 function App(){
     const [score, setScore]= React.useState(0);
     const [feedback, setFeedback]= React.useState("begin");
     const [pushups, setPushups]= React.useState(true);
-    const [timer, setTimer]=React.useState(0); 
     const [start, setStart]=React.useState(false);
+    const [timer, setTimer] = React.useState('00');
 
+    const Ref = useRef(null);
     const webcamRef = useRef(null);
     const canvasRef = useRef(null);
+    
+    const getTimeRemaining = (e) => {
+      const total = Date.parse(e) - Date.parse(new Date());
+      const seconds = Math.floor((total / 1000) % 60);
+      const minutes = Math.floor((total / 1000 / 60) % 60);
+      const hours = Math.floor((total / 1000 / 60 / 60) % 24);
+      return {
+          total, hours, minutes, seconds
+      };
+    }
+    const startTimer = (e) => {
+      let { total, hours, minutes, seconds } 
+                  = getTimeRemaining(e);
+      if (total >= 0) {
+          setTimer(
+              (seconds > 9 ? seconds : '0' + seconds)
+          )
+      }
+    }
+    const clearTimer = (e) => {
+      setTimer(timeLimit);
+      // If you try to remove this line the 
+      // updating of timer Variable will be
+      // after 1000ms or 1sec
+      if (Ref.current) clearInterval(Ref.current);
+      const id = setInterval(() => {
+          startTimer(e);
+      }, 1000)
+      Ref.current = id;
+    }
 
+    const getDeadTime = () => {
+        let deadline = new Date();
+        deadline.setSeconds(deadline.getSeconds() + timeLimit);
+        return deadline;
+    }
     const runMovenet= async()=>{
         const detectorConfig = {modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING};
         const detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, detectorConfig);
@@ -60,27 +96,36 @@ function App(){
       canvas.current.height = videoHeight;
       drawKeypoints(pose["keypoints"], minConfidence, ctx);
 
-      if (start){
+      if (timer>0){
         let result= pushups?drawSkeletonPushUps(pose["keypoints"], minConfidence, ctx): drawSkeletonSitUps(pose["keypoints"], minConfidence, ctx); 
+        //let result= drawSkeletonSitUps(pose["keypoints"], minConfidence, ctx); 
         setScore(Math.floor(result[0]));
         setFeedback(result[1]);
+        console.log("started");
         //TODO: process specific feedback
       }else{
+        console.log("ended");
         return(
-          <div className="App">STOP </div> //why doesnt this break it :<
+          <div className="App">
+            <h1>STOP</h1>
+          </div> //why doesnt this break it :<
         )
       }
     }
     runMovenet();
     return (
-      <div className="App">
+        <div className="App">
         <h1> THANK YOU react founder MARC CHERN DI YONG </h1>
         <img src={require("./assets/gift.png")} alt=" "/>
-        <button onClick={()=>setStart(!start)}>Start</button>
-        <h1>Status: {start?"Start":"Stop"}</h1>
         <button onClick={()=>setPushups(!pushups)}>Change</button>
         <h1>Mode: {pushups?"Pushups":"Situps"}</h1>
         <h1>Score: {score}</h1>
+        <button onClick={()=>{
+          clearTimer(getDeadTime())
+          setStart(!start)
+        }}>Start/Reset</button>
+        <h2>{timer>0?"start":"end"}</h2>
+        <h2>{timer}</h2>
         <h1>feedback: {feedback}</h1>
         <Webcam
           ref={webcamRef}
